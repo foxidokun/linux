@@ -138,6 +138,8 @@ pub mod security;
 pub mod seq_file;
 pub mod sizes;
 pub mod slice;
+#[cfg(CONFIG_INPUT_SPARSEKMAP = "y")]
+pub mod sparse_keymap;
 mod static_assert;
 #[doc(hidden)]
 pub mod std_vendor;
