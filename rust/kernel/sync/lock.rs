@@ -10,8 +10,19 @@ use crate::{
     str::{CStr, CStrExt as _},
     types::{NotThreadSafe, Opaque, ScopeGuard},
 };
-use core::{cell::UnsafeCell, marker::PhantomPinned, pin::Pin};
-use pin_init::{pin_data, pin_init, PinInit, Wrapper};
+use core::{
+    cell::UnsafeCell,
+    convert::Infallible,
+    marker::PhantomPinned,
+    pin::Pin, //
+};
+use pin_init::{
+    pin_data,
+    pin_init,
+    try_pin_init,
+    PinInit,
+    Wrapper, //
+};
 
 pub mod mutex;
 pub mod spinlock;
@@ -128,12 +139,12 @@ unsafe impl<T: ?Sized + Send, B: Backend> Sync for Lock<T, B> {}
 
 impl<T, B: Backend> Lock<T, B> {
     /// Constructs a new lock initialiser.
-    pub fn new(
-        t: impl PinInit<T>,
+    pub fn new<E: From<Infallible>>(
+        t: impl PinInit<T, E>,
         name: &'static CStr,
         key: Pin<&'static LockClassKey>,
-    ) -> impl PinInit<Self> {
-        pin_init!(Self {
+    ) -> impl PinInit<Self, E> {
+        try_pin_init!(Self {
             data <- UnsafeCell::pin_init(t),
             _pin: PhantomPinned,
             // SAFETY: `slot` is valid while the closure is called and both `name` and `key` have
@@ -141,7 +152,7 @@ impl<T, B: Backend> Lock<T, B> {
             state <- Opaque::ffi_init(|slot| unsafe {
                 B::init(slot, name.as_char_ptr(), key.as_ptr())
             }),
-        })
+        } ? E)
     }
 }
 
